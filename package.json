@@ -1,0 +1,14 @@
+{
+  "name": "trackpack",
+  "version": "1.0.0",
+  "description": "Pack your tracks into one track",
+  "main": "index.js",
+  "repository": "https://github.com/frappedevs/Trackpack",
+  "author": "7kayoh <hello@7kayoh.net>",
+  "license": "MIT",
+  "dependencies": {
+    "audioconcat": "^0.1.4",
+    "glob": "^7.2.0",
+    "mp3-duration": "^1.1.0"
+  }
+}
