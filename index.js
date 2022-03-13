@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const glob = require("glob");
-const mp3Duration = require("mp3-duration");
-const audioconcat = require("audioconcat");
+const ffmpeg = require('fluent-ffmpeg');
 
 const sizeLimit = 18.5;
 const durationLimit = 420;
@@ -16,20 +15,38 @@ if (!fs.existsSync("./output")) {
   fs.mkdirSync("./output");
 }
 
+if (!fs.existsSync("./converted")) {
+  fs.mkdirSync("./converted");
+}
+
 function getTrackDuration(track) {
   return new Promise(function (resolve, reject) {
-    mp3Duration(track)
-      .then((result) => {
-        resolve(result);
-      })
-      .catch((err) => reject(err));
+    ffmpeg.ffprobe(track, function(err, info) {
+      if (err) reject(err);
+      resolve(info.format.duration);
+    })
   });
 }
 
+function convert2Ogg(track) {
+  return new Promise(function (resolve, reject) {
+      ffmpeg(track)
+        .audioCodec('libvorbis')
+        .format('ogg')
+        .save(`./converted/${path.parse(track).name}.ogg`)
+        .on('error', function(err) {
+          reject(err);
+        })
+        .on('end', function() {
+          resolve(`./converted/${path.parse(track).name}.ogg`);
+        })
+  })
+}
+
 async function main() {
-  const files = glob.sync("./input/*.mp3");
+  const files = glob.sync("./input/*");
   if (files.length === 0) {
-    throw new Error("No mp3 files found");
+    throw new Error("No files found");
   }
 
   const tracks = [];
@@ -42,15 +59,18 @@ async function main() {
     tracks: [],
   };
 
-  for (const element of files) {
-    console.log(element);
+  for (var element of files) {
+    console.log(`Processing ${element}`);
+
+    element = await convert2Ogg(element);
     const fileSize = fs.statSync(element).size / 1024 / 1024;
     const duration = await getTrackDuration(element);
 
     if (
-      duration + track.duration > durationLimit &&
+      duration + track.duration > durationLimit ||
       fileSize + track.size > sizeLimit
     ) {
+      console.log(`Creating a new track...`)
       tracks.push(track);
       track = {
         duration: 0,
@@ -79,18 +99,21 @@ async function main() {
   );
 
   for (let [index, val] of tracks.entries()) {
-    audioconcat(val.tracks)
-      .concat(`./output/${tracksName}/track-${index + 1}.mp3`)
-      .on("start", function (command) {
-        console.log(`ffmpeg process: ${command}`);
-      })
-      .on("error", function (err, stdout, stderr) {
-        console.error(`ffmpeg process error: ${err}`);
-      })
-      .on("end", function (out) {
-        console.log(`ffmpeg process OK: ${out}`);
-      });
+    console.log(`Processing track ${index + 1}`);
+    const command = ffmpeg();
+    for (const track of val.tracks) {
+      command.input(track)
+    }
+    
+    command.mergeToFile(`./output/${tracksName}/track-${index + 1}.ogg`, `./output/${tracksName}/.temp.track-${index + 1}.ogg`)
+    command.on('end', function() {
+      for (const track of val.tracks) {
+        fs.rmSync(track);
+      }
+    })
   }
+
+  console.log(`Complete process at ./output/${tracksName}`);
 }
 
 main();
