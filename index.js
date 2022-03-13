@@ -37,6 +37,7 @@ async function main() {
   let track = {
     duration: 0,
     size: 0,
+    name: `track-${tracks.length + 1}`,
     data: {},
     tracks: [],
   };
@@ -54,6 +55,7 @@ async function main() {
       track = {
         duration: 0,
         size: 0,
+        name: `track-${tracks.length + 1}`,
         data: {},
         tracks: [],
       };
@@ -78,7 +80,7 @@ async function main() {
 
   for (let [index, val] of tracks.entries()) {
     audioconcat(val.tracks)
-      .concat(`./output/${tracksName}/output-${index + 1}.mp3`)
+      .concat(`./output/${tracksName}/track-${index + 1}.mp3`)
       .on("start", function (command) {
         console.log(`ffmpeg process: ${command}`);
       })
